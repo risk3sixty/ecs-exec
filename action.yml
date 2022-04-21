@@ -1,0 +1,22 @@
+name: 'ECS Exec'
+description: 'Execute a command in a fargate cluster using ECS exec'
+inputs:
+  region:
+    description: 'Region the ECS cluster is in'
+    required: true
+  cluster_name:
+    description: 'ECS cluster the target container is a part of'
+    required: true
+  service_name:
+    description: 'ECS Service the target container is a part of'
+    required: true
+  command:
+    description: 'Command to run within the targeted service'
+    required: true
+
+outputs:
+  time: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'node16'
+  main: 'index.js'
