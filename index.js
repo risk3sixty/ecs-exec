@@ -85,6 +85,6 @@ const util = require("util");
       console.log("Execution complete");
     };
   } catch (err) {
-    core.setFailed(error.message);
+    core.setFailed(err.message);
   }
 })();
