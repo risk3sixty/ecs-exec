@@ -16,10 +16,6 @@ const util = require("util");
     const cluster = core.getInput('cluster_name')
     const serviceName = core.getInput('service_name')
     const command = core.getInput('command')
-    // const region = "us-east-1";
-    // const cluster = "phalanx-qa";
-    // const serviceName = "phalanx-web-qa";
-    // const command = "npm run migrate";
 
     const ecs = new ECSClient({ region });
 

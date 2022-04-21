@@ -25,9 +25,10 @@ This executes a given command in the specified ECS Fargate Service. It assumes t
 
 ## Example usage
 
+```
 uses: actions/hello-world-javascript-action@v1.1
 with:
-  region: 'us-east-1'
-  cluster_name: 'my-cluster'
-  service_name: 'my-service'
-  command: 'npm run migrate'
+	region: 'us-east-1'
+	cluster_name: 'my-cluster'
+	service_name: 'my-service'
+	command: 'npm run migrate'
