@@ -1,4 +1,4 @@
-# Hello world javascript action
+# AWS ECS Exec with Nodejs
 
 This executes a given command in the specified ECS Fargate Service. It assumes that all tasks within a service are the same, and it doesn't matter which task the command runs on. We use it to perform database migrations.
 
