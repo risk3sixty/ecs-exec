@@ -37,7 +37,9 @@ const util = require("util");
       command,
       task,
     });
+    console.log('Sending execution command..');
     const response = await ecs.send(executeCommand);
+    console.log('response received!: ', response.session);
     const { streamUrl, tokenValue } = response.session;
 
     const textDecoder = new util.TextDecoder();
@@ -47,7 +49,8 @@ const util = require("util");
       rows: 34,
       cols: 197,
     };
-
+    
+    console.log('intiating connection with response....')
     const connection = new WebSocket(streamUrl);
 
     process.stdin.on("keypress", (str, key) => {
