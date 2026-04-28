@@ -1,9 +1,8 @@
 {
   "dependencies": {
-    "@actions/core": "^1.6.0",
-    "@aws-sdk/client-ecs": "^3.74.0",
-    "aws-sdk": "^2.1118.0",
+    "@actions/core": "^2.0.3",
+    "@aws-sdk/client-ecs": "^3.1038.0",
     "ssm-session": "^1.0.6",
-    "ws": "^8.5.0"
+    "ws": "^8.20.0"
   }
 }
