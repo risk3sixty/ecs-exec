@@ -10,6 +10,9 @@ inputs:
   service_name:
     description: 'ECS Service the target container is a part of'
     required: true
+  container_name:
+    description: 'Name of the container within the task to run the command in. Required when the task runs more than one container; if omitted, ECS defaults to the task''s only container.'
+    required: false
   command:
     description: 'Command to run within the targeted service'
     required: true
