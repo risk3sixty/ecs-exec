@@ -15,6 +15,7 @@ const util = require("util");
     const region = core.getInput('region')
     const cluster = core.getInput('cluster_name')
     const serviceName = core.getInput('service_name')
+    const container = core.getInput('container_name') // optional; required for multi-container tasks
     const command = core.getInput('command')
 
     const ecs = new ECSClient({ region });
@@ -22,20 +23,40 @@ const util = require("util");
     console.log(
       `Getting tasks running in the ${serviceName} service within the ${cluster} cluster`
     );
-    const listTasks = new ListTasksCommand({ cluster, serviceName });
+    const listTasks = new ListTasksCommand({
+      cluster,
+      serviceName,
+      desiredStatus: "RUNNING",
+    });
     const { taskArns } = await ecs.send(listTasks);
     console.log("Retrieved the following taskArns: ", taskArns);
+
+    if (!taskArns || taskArns.length === 0) {
+      throw new Error(
+        `No RUNNING tasks found in service '${serviceName}' within cluster '${cluster}'.`
+      );
+    }
 
     console.log("Extracting taskId from first taskArn...");
     const task = taskArns[0];
     console.log("Extracted taskId: ", task);
 
-    console.log(`Running command ${command}....`);
+    // ECS Exec streams terminal output but does NOT return the remote command's
+    // exit status. Wrap the command in a shell that echoes a unique marker with
+    // the exit code so we can detect failure from the streamed output below.
+    const EXIT_MARKER = "__ECS_EXEC_EXIT__";
+    const escapedCommand = command.replace(/'/g, `'\\''`);
+    const wrappedCommand = `/bin/sh -c '${escapedCommand}; echo ${EXIT_MARKER}=$?'`;
+
+    console.log(
+      `Running command "${command}"${container ? ` in container "${container}"` : ""}....`
+    );
     const executeCommand = new ExecuteCommandCommand({
       cluster,
       interactive: true,
-      command,
+      command: wrappedCommand,
       task,
+      ...(container ? { container } : {}),
     });
     console.log('Sending execution command..');
     const response = await ecs.send(executeCommand);
@@ -59,30 +80,58 @@ const util = require("util");
       }
     });
 
-    connection.onopen = () => {
-      ssm.init(connection, {
-        token: tokenValue,
-        termOptions: termOptions,
-      });
-    };
+    // Accumulate the streamed terminal output so we can scan it for the exit
+    // marker once the session closes.
+    let output = "";
 
-    connection.onerror = (error) => {
-      console.log(`WebSocket error: ${error}`);
-    };
+    await new Promise((resolve, reject) => {
+      connection.onopen = () => {
+        ssm.init(connection, {
+          token: tokenValue,
+          termOptions: termOptions,
+        });
+      };
 
-    connection.onmessage = (event) => {
-      var agentMessage = ssm.decode(event.data);
-      ssm.sendACK(connection, agentMessage);
-      if (agentMessage.payloadType === 1) {
-        process.stdout.write(textDecoder.decode(agentMessage.payload));
-      } else if (agentMessage.payloadType === 17) {
-        ssm.sendInitMessage(connection, termOptions);
-      }
-    };
+      connection.onerror = (error) => {
+        reject(
+          new Error(
+            `WebSocket error: ${error && error.message ? error.message : error}`
+          )
+        );
+      };
 
-    connection.onclose = () => {
+      connection.onmessage = (event) => {
+        var agentMessage = ssm.decode(event.data);
+        ssm.sendACK(connection, agentMessage);
+        if (agentMessage.payloadType === 1) {
+          const text = textDecoder.decode(agentMessage.payload);
+          output += text;
+          process.stdout.write(text);
+        } else if (agentMessage.payloadType === 17) {
+          ssm.sendInitMessage(connection, termOptions);
+        }
+      };
+
+      connection.onclose = () => {
+        resolve();
+      };
+    });
+
+    // The command line itself is echoed back by the interactive PTY (with a
+    // literal "=$?"), so match only a marker followed by digits and take the
+    // last occurrence — that is the real command's exit code.
+    const matches = [...output.matchAll(new RegExp(`${EXIT_MARKER}=(\\d+)`, "g"))];
+    const exitCode = matches.length ? matches[matches.length - 1][1] : null;
+
+    if (exitCode === null) {
+      core.setFailed(
+        "Command did not report an exit code — the exec session may have dropped before the command finished."
+      );
+    } else if (exitCode !== "0") {
+      core.setFailed(`Command "${command}" exited with code ${exitCode}.`);
+    } else {
       console.log("Execution complete");
-    };
+    }
   } catch (err) {
     core.setFailed(err.message);
   }
